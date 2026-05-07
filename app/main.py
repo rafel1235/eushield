@@ -14,7 +14,11 @@ from fastapi.middleware.cors import CORSMiddleware
 import uuid
 
 # Importiamo gli schemi che abbiamo creato
-from app.schemas.pydantic import ScanRequest, ScanResult, DsarCreate, DsarResponse
+from app.schemas.pydantic import (
+    ScanRequest, ScanResult, 
+    DsarCreate, DsarResponse,
+    BannerConfigRequest, BannerResponse # <-- Aggiunti questi due
+)
 
 app = FastAPI(
     title="EUShield API",
@@ -87,4 +91,34 @@ async def submit_dsar_request(dsar: DsarCreate):
         "id": request_id,
         "status": "pending",
         "message": "Richiesta ricevuta. Il titolare del trattamento ti contatterà entro 30 giorni."
+    }
+
+# ==========================================
+# ENDPOINT MODULO B: COOKIE BANNER
+# ==========================================
+@app.post("/api/banner/generate", response_model=BannerResponse, tags=["Banner"])
+async def generate_banner(config: BannerConfigRequest):
+    """
+    Riceve le preferenze di stile e lingua dell'utente e genera 
+    lo script HTML univoco da incorporare nel sito web.
+    """
+    
+    # In futuro il dominio sarà il tuo vero bucket S3 o Cloudflare CDN
+    cdn_url = "https://cdn.eushield.eu/banner.js"
+    
+    # Generiamo lo snippet. Usiamo i "data-attributes" per passare la configurazione 
+    # dal sito del cliente al nostro file javascript quando verrà caricato.
+    snippet = f"""<script 
+    src="{cdn_url}" 
+    data-project="{config.project_id}"
+    data-lang="{config.language}"
+    data-theme="{config.theme}"
+    data-pos="{config.position}"
+    defer>
+</script>
+"""
+
+    return {
+        "script_snippet": snippet,
+        "instructions": "Copia e incolla questo codice tra i tag <head> e </head> di tutte le pagine del tuo sito web."
     }
