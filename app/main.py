@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import uuid
 import sys
 import asyncio
+from fastapi.staticfiles import StaticFiles
 
 # --- FIX PER WINDOWS + PLAYWRIGHT ---
 if sys.platform == "win32":
@@ -33,7 +34,11 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    # Servi i file statici (il tuo banner.js e index.html per i test)
 )
+
+# Servi i file statici (il tuo banner.js e index.html per i test)
+app.mount("/public", StaticFiles(directory="public"), name="public")
 
 # --- FUNZIONE FINTA PER IL BACKGROUND TASK ---
 # (In futuro, qui chiameremo Playwright o lo manderemo a Celery/Redis)
