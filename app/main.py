@@ -47,13 +47,12 @@ from app.services.crawler import analyze_website
 
 # ... (tieni il resto del file com'è, fino alla funzione in background) ...
 
-# AGGIORNA QUESTA FUNZIONE
-# NOTA: non c'è più "async def", solo "def"
-def run_playwright_scan(task_id: str, url: str):
+# Aggiungi 'project_id' ai parametri
+def run_playwright_scan(task_id: str, url: str, project_id: str):
     print(f"[TASK {task_id}] Inizio elaborazione in background...")
     
-    # Eseguiamo il crawler (non c'è più "await")
-    scan_results = analyze_website(url)
+    # Passiamo sia l'URL che il project_id
+    scan_results = analyze_website(url, project_id)
     
     print(f"\n--- RISULTATI SCAN {task_id} ---")
     import json
@@ -66,6 +65,7 @@ def run_playwright_scan(task_id: str, url: str):
 # ENDPOINT MODULO A: SCANNER
 # ==========================================
 @app.post("/api/scan", response_model=ScanResult, tags=["Scanner"])
+# Aggiungi str(request.project_id) alla fine
 async def start_scan(request: ScanRequest, background_tasks: BackgroundTasks):
     """
     Riceve un URL, avvia il crawler in background e restituisce un task_id.
@@ -74,7 +74,7 @@ async def start_scan(request: ScanRequest, background_tasks: BackgroundTasks):
     task_id = str(uuid.uuid4())
     
     # Passiamo il lavoro pesante in background
-    background_tasks.add_task(run_playwright_scan, task_id, str(request.url))
+    background_tasks.add_task(run_playwright_scan, task_id, str(request.url), str(request.project_id))
     
     return {"task_id": task_id, "status": "processing"}
 
