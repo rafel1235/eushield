@@ -4,6 +4,10 @@ import uuid
 import sys
 import asyncio
 from fastapi.staticfiles import StaticFiles
+import hashlib
+from fastapi import Request
+from app.models.database import SessionLocal, ConsentLog
+from app.schemas.pydantic import ConsentLogCreate # Ricordati di importarlo!
 
 # --- FIX PER WINDOWS + PLAYWRIGHT ---
 if sys.platform == "win32":
@@ -127,3 +131,35 @@ async def generate_banner(config: BannerConfigRequest):
         "script_snippet": snippet,
         "instructions": "Copia e incolla questo codice tra i tag <head> e </head> di tutte le pagine del tuo sito web."
     }
+
+# ==========================================
+# ENDPOINT MODULO B: RICEZIONE LOG CONSENSO
+# ==========================================
+@app.post("/api/consent", tags=["Banner"])
+async def log_consent(consent: ConsentLogCreate, request: Request):
+    """
+    Riceve il click dal banner installato sul sito del cliente 
+    e salva il log nel database anonimizzando l'IP (Requisito GDPR).
+    """
+    # 1. Recupero e Hashing dell'IP (Il GDPR vieta di salvare l'IP in chiaro!)
+    raw_ip = request.client.host if request.client else "unknown"
+    ip_hash = hashlib.sha256(raw_ip.encode('utf-8')).hexdigest()
+    
+    # 2. Salvataggio su Database
+    db = SessionLocal()
+    try:
+        new_log = ConsentLog(
+            project_id=consent.project_id,
+            ip_hash=ip_hash,
+            action=consent.action,
+            preferences=consent.preferences
+        )
+        db.add(new_log)
+        db.commit()
+        print(f"🔒 Log Consenso salvato! Progetto: {consent.project_id} | Azione: {consent.action}")
+        return {"status": "success", "message": "Consent logged securely."}
+    except Exception as e:
+        print(f"❌ Errore nel salvataggio del log: {e}")
+        return {"error": "Failed to log consent"}
+    finally:
+        db.close()

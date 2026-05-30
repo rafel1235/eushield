@@ -66,20 +66,38 @@
     `;
     document.body.appendChild(banner);
 
+   // Funzione helper per inviare i dati al nostro backend in modo invisibile (Asincrono)
+    function sendConsentLog(action, preferences) {
+        // NOTA: Quando andrai online, questo sarà 'https://api.eushield.eu/api/consent'
+        fetch('http://127.0.0.1:8000/api/consent', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                project_id: projectId,
+                action: action,
+                preferences: preferences
+            })
+        }).catch(err => console.error("EUShield: log error", err));
+    }
+
     // 6. Gestiamo i click sui pulsanti
     document.getElementById('eushield-accept').addEventListener('click', () => {
-        // Salviamo il consenso
         localStorage.setItem(storageKey, 'accepted');
         banner.remove();
         
-        // Magia GDPR: Diciamo al sito del cliente "Ehi, ha accettato, fai partire Google Analytics!"
+        // NOVITÀ: Salviamo il log nel Database di EUShield!
+        sendConsentLog('accepted', { analytics: true, marketing: true, necessary: true });
+        
+        // Attiviamo i tracker sul sito del cliente
         window.dispatchEvent(new Event('eushield_consent_accepted'));
     });
 
     document.getElementById('eushield-reject').addEventListener('click', () => {
-        // Salviamo il rifiuto
         localStorage.setItem(storageKey, 'rejected');
         banner.remove();
+        
+        // NOVITÀ: Salviamo il log del rifiuto
+        sendConsentLog('rejected', { analytics: false, marketing: false, necessary: true });
         
         window.dispatchEvent(new Event('eushield_consent_rejected'));
     });

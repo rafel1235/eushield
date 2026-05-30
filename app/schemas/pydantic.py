@@ -34,3 +34,13 @@ class BannerConfigRequest(BaseModel):
 class BannerResponse(BaseModel):
     script_snippet: str
     instructions: str  
+
+# Aggiungi 'Any' alle importazioni in alto se non c'è:
+# from typing import Optional, List, Dict, Literal, Any
+
+# ... (codice esistente) ...
+
+class ConsentLogCreate(BaseModel):
+    project_id: UUID
+    action: Literal["accepted", "rejected", "customized"]
+    preferences: Dict[str, bool] # es. {"marketing": true, "analytics": false}    
