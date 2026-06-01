@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EUShield | Instant Compliance</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans antialiased">
+
+    <nav class="bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+        <div class="font-extrabold text-2xl tracking-tighter text-blue-600">EUShield.</div>
+        <div class="text-sm font-medium text-gray-500">Dashboard</div>
+    </nav>
+
+    <div class="max-w-3xl mx-auto mt-16 p-8 bg-white shadow-2xl rounded-2xl border border-gray-100">
+        
+        <div id="step-input" class="text-center py-8">
+            <h1 class="text-4xl font-extrabold mb-4 text-gray-900 tracking-tight">Make your website EU compliant in 10 minutes.</h1>
+            <p class="text-gray-500 mb-10 text-lg">Scan your website, e-commerce, or SaaS for GDPR risks in seconds.</p>
+            
+            <div class="flex gap-4 max-w-xl mx-auto">
+                <input type="url" id="url-input" placeholder="https://mioshop.it" class="border-2 border-gray-300 p-4 w-full rounded-xl text-lg focus:outline-none focus:border-blue-500 transition-colors" value="https://">
+                <button id="scan-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-xl text-lg font-bold shadow-lg transition-all whitespace-nowrap">Start Free Scan</button>
+            </div>
+            <p class="text-xs text-gray-400 mt-4">Analizza cookie, tracker, form e widget di terze parti.</p>
+        </div>
+
+        <div id="step-loading" class="hidden text-center py-16">
+            <div class="animate-spin rounded-full h-20 w-20 border-b-4 border-blue-600 mx-auto mb-6"></div>
+            <h2 class="text-2xl font-bold text-gray-900">EUShield is scanning your site...</h2>
+            <p class="text-gray-500 mt-2 text-lg">This takes about 30 seconds. Do not close this window.</p>
+            
+            <div class="mt-8 text-sm text-gray-400 text-left w-64 mx-auto bg-gray-50 p-4 rounded-lg border">
+                ✓ Connecting to domain...<br>
+                ✓ Simulating user visit...<br>
+                <span class="animate-pulse">⟳ Intercepting third-party scripts...</span>
+            </div>
+        </div>
+
+        <div id="step-results" class="hidden">
+            <div class="flex justify-between items-center mb-8 border-b pb-6">
+                <div>
+                    <h2 class="text-3xl font-bold text-gray-900">Compliance Report</h2>
+                    <p class="text-gray-500 mt-1" id="scanned-url-display">Sito analizzato: ...</p>
+                </div>
+                <div class="text-right bg-gray-50 p-4 rounded-xl border">
+                    <span class="text-sm font-bold text-gray-500 uppercase tracking-wide">Risk Score</span>
+                    <div id="score-display" class="text-5xl font-extrabold mt-1">--/100</div>
+                </div>
+            </div>
+
+            <div class="bg-red-50 border-l-4 border-red-500 p-5 rounded-r-lg mb-8">
+                <h3 class="font-bold text-red-800 mb-3 text-lg">⚠ Problemi Critici Trovati:</h3>
+                <ul class="list-none space-y-2">
+                    <li class="flex items-center text-red-700"><span class="mr-2">❌</span> Tracker di profilazione avviati senza consenso</li>
+                    <li class="flex items-center text-red-700"><span class="mr-2">❌</span> Banner cookie non conforme alle linee guida EDPB</li>
+                    <li class="flex items-center text-red-700"><span class="mr-2">❌</span> Nessun portale DSAR per la gestione delle richieste utenti</li>
+                </ul>
+            </div>
+
+            <h3 class="text-xl font-bold mb-4 text-gray-800">Tracker Rilevati</h3>
+            <div id="trackers-list" class="space-y-3 mb-10">
+                </div>
+
+            <button class="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-5 rounded-xl text-xl w-full font-bold shadow-xl transition-all transform hover:-translate-y-1">
+                ✨ Fix Automatically
+            </button>
+            <p class="text-center text-gray-400 text-sm mt-3">Genera Banner, Privacy Policy e Dashboard in 1 click.</p>
+        </div>
+
+    </div>
+
+    <script>
+        const scanBtn = document.getElementById('scan-btn');
+        const inputStep = document.getElementById('step-input');
+        const loadingStep = document.getElementById('step-loading');
+        const resultsStep = document.getElementById('step-results');
+        const urlInput = document.getElementById('url-input');
+
+        scanBtn.addEventListener('click', async () => {
+            const url = urlInput.value;
+            if(!url || !url.startsWith('http')) {
+                return alert('Inserisci un URL valido (deve iniziare con http:// o https://)');
+            }
+
+            // 1. Nascondiamo Input, Mostriamo Caricamento
+            inputStep.classList.add('hidden');
+            loadingStep.classList.remove('hidden');
+
+            try {
+                // 2. Chiamiamo la tua vera API FastAPI!
+                const response = await fetch('http://127.0.0.1:8000/api/scan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        url: url,
+                        project_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6" // Progetto di test fisso
+                    })
+                });
+
+                const data = await response.json();
+
+                if(data.error) {
+                    alert("Errore del crawler: " + data.error);
+                    loadingStep.classList.add('hidden');
+                    inputStep.classList.remove('hidden');
+                    return;
+                }
+
+                // 3. Abbiamo i dati! Aggiorniamo la UI
+                document.getElementById('scanned-url-display').innerText = `Sito analizzato: ${data.url}`;
+                
+                // Coloriamo il punteggio di Rischio (Più è alto, più è grave e rosso)
+                const scoreEl = document.getElementById('score-display');
+                scoreEl.innerText = `${data.risk_score}/100`;
+                if(data.risk_score > 60) scoreEl.className = "text-5xl font-extrabold mt-1 text-red-600";
+                else if(data.risk_score > 30) scoreEl.className = "text-5xl font-extrabold mt-1 text-orange-500";
+                else scoreEl.className = "text-5xl font-extrabold mt-1 text-green-500";
+
+                // Iniettiamo i tracker con le Categorie colorate
+                const trackersList = document.getElementById('trackers-list');
+                trackersList.innerHTML = '';
+                
+                if (data.trackers_found && data.trackers_found.length > 0) {
+                    data.trackers_found.forEach(t => {
+                        // Assegnazione colori in base alle nuove categorie
+                        let colorClass = "bg-gray-100 text-gray-800"; // Servizi di terze parti (Default)
+                        
+                        if(t.category === 'Pubblicità') colorClass = "bg-purple-100 text-purple-800";
+                        if(t.category === 'Analytics') colorClass = "bg-blue-100 text-blue-800";
+                        if(t.category === 'Sistemi di pagamento') colorClass = "bg-emerald-100 text-emerald-800";
+                        if(t.category === 'Chat Widget') colorClass = "bg-yellow-100 text-yellow-800";
+                        if(t.category === 'Form') colorClass = "bg-teal-100 text-teal-800";
+                        if(t.category === 'Cookie') colorClass = "bg-orange-100 text-orange-800";
+                        
+                        // Per i "Tracker" generici
+                        if(t.category === 'Tracker') colorClass = "bg-red-100 text-red-800";
+
+                        trackersList.innerHTML += `
+                            <div class="flex justify-between items-center p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                                <span class="font-semibold text-gray-800">${t.name}</span>
+                                <span class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wide ${colorClass}">${t.category}</span>
+                            </div>
+                        `;
+                    });
+                } else {
+                     trackersList.innerHTML = '<p class="text-gray-500 italic p-4 bg-gray-50 rounded border">Nessun tracker conosciuto rilevato su questa pagina.</p>';
+                }
+
+                // 4. Nascondiamo Caricamento, Mostriamo Risultati!
+                loadingStep.classList.add('hidden');
+                resultsStep.classList.remove('hidden');
+
+            } catch (err) {
+                alert("Errore di connessione al server EUShield!");
+                loadingStep.classList.add('hidden');
+                inputStep.classList.remove('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
