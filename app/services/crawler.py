@@ -87,7 +87,7 @@ def analyze_website(url: str, project_id: str) -> dict:
             # Salvataggio DB...
             db = SessionLocal()
             try:
-                db_scan = Scan(project_id=uuid.UUID(project_id), risk_score=risk_score, total_cookies=len(cookies))
+                db_scan = Scan(project_id=str(project_id), risk_score=risk_score, total_cookies=len(cookies))
                 db.add(db_scan)
                 db.commit()
                 db.refresh(db_scan)

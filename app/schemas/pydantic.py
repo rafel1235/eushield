@@ -54,8 +54,19 @@ class PolicyRequest(BaseModel):
     receives_payments: bool
     uses_analytics: bool
     uses_newsletter: bool
+    # ✨ LA NOVITÀ: Il generatore ora riceve i tracker scansionati!
+    detected_trackers: List[Dict[str, str]] = []
 
 class PolicyResponse(BaseModel):
     policy_id: UUID
     html_content: str
     message: str    
+
+
+# ---> INCOLLA IN FONDO AL FILE <---
+class AuthRequest(BaseModel):
+    email: EmailStr
+
+class ProjectCreate(BaseModel):
+    user_id: UUID
+    domain_name: str    

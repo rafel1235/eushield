@@ -62,13 +62,15 @@
             <h3 class="text-xl font-bold mb-4 text-gray-800">Tracker Rilevati</h3>
             <div id="trackers-list" class="space-y-3 mb-10">
                 </div>
+            
             <button id="fix-btn" class="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-5 rounded-xl text-xl w-full font-bold shadow-xl transition-all transform hover:-translate-y-1">
                     ✨ Fix Automatically
             </button>    
 
-        
             <p class="text-center text-gray-400 text-sm mt-3">Genera Banner, Privacy Policy e Dashboard in 1 click.</p>
-            <div id="step-wizard" class="hidden mt-10 pt-10 border-t border-gray-200">
+        </div>
+        
+        <div id="step-wizard" class="hidden mt-10 pt-10 border-t border-gray-200">
             <h2 class="text-2xl font-bold text-gray-900 mb-6">Genera il tuo Compliance Kit</h2>
             <div class="space-y-4 bg-gray-50 p-6 rounded-xl border border-gray-200">
                 <label class="flex items-center space-x-3 text-lg"><input type="checkbox" id="q-ecommerce" class="w-5 h-5 rounded text-blue-600"> <span>Hai un E-commerce?</span></label>
@@ -92,39 +94,69 @@
             <h3 class="font-bold text-xl mb-2">2. La tua Privacy Policy</h3>
             <div id="policy-output" class="bg-white p-6 border border-gray-300 rounded-lg shadow-inner h-64 overflow-y-auto"></div>
         </div>
-        </div>
 
     </div>
 
     <script>
+        // --- SISTEMA DI AUTENTICAZIONE ---
+        const currentProjectId = localStorage.getItem('eushield_project_id');
+        const currentProjectDomain = localStorage.getItem('eushield_domain');
+        
+        
+        
+
+        // Se un estraneo prova ad aprire la dashboard senza account, caccialo al Login!
+        if(!currentProjectId) {
+            window.location.href = "login.html";
+        }
+
+        // Variabili DOM
         const scanBtn = document.getElementById('scan-btn');
         const inputStep = document.getElementById('step-input');
         const loadingStep = document.getElementById('step-loading');
         const resultsStep = document.getElementById('step-results');
         const urlInput = document.getElementById('url-input');
+        const fixBtn = document.getElementById('fix-btn');
+        const wizardStep = document.getElementById('step-wizard');
+        const generateKitBtn = document.getElementById('generate-kit-btn');
+        const successStep = document.getElementById('step-success');
 
+        // ✨ Memoria temporanea per i tracker trovati dallo scanner
+        let lastScanTrackers = [];
+
+        // Autocompila la barra di ricerca col sito inserito al login
+        if(currentProjectDomain) {
+            urlInput.value = currentProjectDomain;
+        }
+
+        // 1. GESTIONE SCANSIONE
         scanBtn.addEventListener('click', async () => {
             const url = urlInput.value;
             if(!url || !url.startsWith('http')) {
                 return alert('Inserisci un URL valido (deve iniziare con http:// o https://)');
             }
 
-            // 1. Nascondiamo Input, Mostriamo Caricamento
             inputStep.classList.add('hidden');
             loadingStep.classList.remove('hidden');
 
             try {
-                // 2. Chiamiamo la tua vera API FastAPI!
+                // Inviamo il VERO projectId appena recuperato dal login
                 const response = await fetch('http://127.0.0.1:8000/api/scan', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         url: url,
-                        project_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6" // Progetto di test fisso
+                        project_id: currentProjectId 
                     })
                 });
 
                 const data = await response.json();
+
+                // ... (dopo aver ricevuto const data = await response.json();) ...
+                document.getElementById('scanned-url-display').innerText = `Sito analizzato: ${data.url}`;
+                
+                // ✨ SALVIAMO I TRACKER NELLA MEMORIA!
+                lastScanTrackers = data.trackers_found || [];
 
                 if(data.error) {
                     alert("Errore del crawler: " + data.error);
@@ -133,24 +165,20 @@
                     return;
                 }
 
-                // 3. Abbiamo i dati! Aggiorniamo la UI
                 document.getElementById('scanned-url-display').innerText = `Sito analizzato: ${data.url}`;
                 
-                // Coloriamo il punteggio di Rischio (Più è alto, più è grave e rosso)
                 const scoreEl = document.getElementById('score-display');
                 scoreEl.innerText = `${data.risk_score}/100`;
                 if(data.risk_score > 60) scoreEl.className = "text-5xl font-extrabold mt-1 text-red-600";
                 else if(data.risk_score > 30) scoreEl.className = "text-5xl font-extrabold mt-1 text-orange-500";
                 else scoreEl.className = "text-5xl font-extrabold mt-1 text-green-500";
 
-                // Iniettiamo i tracker con le Categorie colorate
                 const trackersList = document.getElementById('trackers-list');
                 trackersList.innerHTML = '';
                 
                 if (data.trackers_found && data.trackers_found.length > 0) {
                     data.trackers_found.forEach(t => {
-                        // Assegnazione colori in base alle nuove categorie
-                        let colorClass = "bg-gray-100 text-gray-800"; // Servizi di terze parti (Default)
+                        let colorClass = "bg-gray-100 text-gray-800"; 
                         
                         if(t.category === 'Pubblicità') colorClass = "bg-purple-100 text-purple-800";
                         if(t.category === 'Analytics') colorClass = "bg-blue-100 text-blue-800";
@@ -158,8 +186,6 @@
                         if(t.category === 'Chat Widget') colorClass = "bg-yellow-100 text-yellow-800";
                         if(t.category === 'Form') colorClass = "bg-teal-100 text-teal-800";
                         if(t.category === 'Cookie') colorClass = "bg-orange-100 text-orange-800";
-                        
-                        // Per i "Tracker" generici
                         if(t.category === 'Tracker') colorClass = "bg-red-100 text-red-800";
 
                         trackersList.innerHTML += `
@@ -173,7 +199,6 @@
                      trackersList.innerHTML = '<p class="text-gray-500 italic p-4 bg-gray-50 rounded border">Nessun tracker conosciuto rilevato su questa pagina.</p>';
                 }
 
-                // 4. Nascondiamo Caricamento, Mostriamo Risultati!
                 loadingStep.classList.add('hidden');
                 resultsStep.classList.remove('hidden');
 
@@ -182,15 +207,9 @@
                 loadingStep.classList.add('hidden');
                 inputStep.classList.remove('hidden');
             }
+        });
 
-            // ... (lascia il codice che c'era per lo scan) ...
-
-        const fixBtn = document.getElementById('fix-btn');
-        const wizardStep = document.getElementById('step-wizard');
-        const generateKitBtn = document.getElementById('generate-kit-btn');
-        const successStep = document.getElementById('step-success');
-
-        // Mostra le domande
+        // 2. MOSTRA WIZARD
         if(fixBtn) {
             fixBtn.addEventListener('click', () => {
                 wizardStep.classList.remove('hidden');
@@ -198,21 +217,33 @@
             });
         }
 
-        // Genera il KIT chiamando le tue API
+        // 3. GENERA KIT (POLICY + BANNER)
         if(generateKitBtn) {
             generateKitBtn.addEventListener('click', async () => {
+                const policyRes = await fetch('http://127.0.0.1:8000/api/policy/generate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            project_id: currentProjectId,
+                            has_ecommerce: document.getElementById('q-ecommerce').checked,
+                            collects_email: document.getElementById('q-email').checked,
+                            receives_payments: document.getElementById('q-payments').checked,
+                            uses_analytics: document.getElementById('q-analytics').checked,
+                            uses_newsletter: document.getElementById('q-newsletter').checked,
+                            // ✨ INVIAMO I TRACKER AL GENERATORE!
+                            detected_trackers: lastScanTrackers 
+                        })
+                    });
                 generateKitBtn.innerText = "Generazione in corso...";
                 generateKitBtn.disabled = true;
 
-                const projectId = "3fa85f64-5717-4562-b3fc-2c963f66afa6";
-
                 try {
-                    // 1. Genera la Policy
+                    // Usiamo il VERO projectId per generare la Policy e il Banner
                     const policyRes = await fetch('http://127.0.0.1:8000/api/policy/generate', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            project_id: projectId,
+                            project_id: currentProjectId,
                             has_ecommerce: document.getElementById('q-ecommerce').checked,
                             collects_email: document.getElementById('q-email').checked,
                             receives_payments: document.getElementById('q-payments').checked,
@@ -222,12 +253,11 @@
                     });
                     const policyData = await policyRes.json();
 
-                    // 2. Genera il Banner (usando l'API che avevamo già creato!)
                     const bannerRes = await fetch('http://127.0.0.1:8000/api/banner/generate', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            project_id: projectId,
+                            project_id: currentProjectId,
                             language: "it",
                             theme: "light",
                             position: "bottom"
@@ -235,7 +265,6 @@
                     });
                     const bannerData = await bannerRes.json();
 
-                    // Mostra i risultati
                     document.getElementById('policy-output').innerHTML = policyData.html_content;
                     document.getElementById('banner-code-output').value = bannerData.script_snippet;
                     
@@ -245,10 +274,11 @@
 
                 } catch(e) {
                     alert("Errore nella generazione del kit!");
+                    generateKitBtn.innerText = "Genera Kit Legalmente Valido";
+                    generateKitBtn.disabled = false;
                 }
             });
         }
-        });
     </script>
 </body>
 </html>

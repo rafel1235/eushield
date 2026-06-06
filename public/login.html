@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login | EUShield</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 flex items-center justify-center h-screen font-sans">
+
+    <div class="bg-white p-10 rounded-2xl shadow-2xl max-w-md w-full border border-gray-100">
+        <h1 class="text-3xl font-extrabold text-blue-600 text-center mb-2">EUShield.</h1>
+        
+        <!-- FASE 1: INSERIMENTO EMAIL -->
+        <div id="step-email">
+            <h2 class="text-xl font-bold text-center text-gray-800 mb-6">Accedi o Registrati</h2>
+            <p class="text-sm text-gray-500 text-center mb-6">Inserisci la tua email, ti invieremo un Magic Link per accedere senza password.</p>
+            <input type="email" id="email-input" placeholder="mario@azienda.it" class="w-full border-2 border-gray-300 p-3 rounded-lg mb-4 focus:outline-none focus:border-blue-500">
+            <button id="auth-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-colors">Ricevi Magic Link</button>
+        </div>
+
+        <!-- FASE 2: INSERIMENTO SITO (Appare dopo il login) -->
+        <div id="step-project" class="hidden">
+            <div class="text-center mb-6">
+                <span class="bg-green-100 text-green-800 text-xs font-bold px-3 py-1 rounded-full uppercase">Accesso Effettuato</span>
+            </div>
+            <h2 class="text-xl font-bold text-center text-gray-800 mb-6">Quale sito vuoi controllare?</h2>
+            <input type="url" id="domain-input" placeholder="https://mioshop.it" class="w-full border-2 border-gray-300 p-3 rounded-lg mb-4 focus:outline-none focus:border-blue-500">
+            <button id="project-btn" class="w-full bg-gray-900 hover:bg-black text-white font-bold py-3 rounded-lg transition-colors">Entra nella Dashboard &rarr;</button>
+        </div>
+    </div>
+
+    <script>
+        // Logica di Onboarding
+        document.getElementById('auth-btn').addEventListener('click', async () => {
+            const email = document.getElementById('email-input').value;
+            if(!email) return alert("Inserisci l'email!");
+
+            // 1. Chiamiamo l'API del Magic Link
+            const res = await fetch('/api/auth/magic-link', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email: email })
+            });
+            const data = await res.json();
+            
+            // Salviamo l'Utente nel browser
+            localStorage.setItem('eushield_user_id', data.user_id);
+
+            // Passiamo alla schermata del Progetto
+            document.getElementById('step-email').classList.add('hidden');
+            document.getElementById('step-project').classList.remove('hidden');
+        });
+
+        document.getElementById('project-btn').addEventListener('click', async () => {
+            const domain = document.getElementById('domain-input').value;
+            const userId = localStorage.getItem('eushield_user_id');
+            if(!domain) return alert("Inserisci il tuo sito web!");
+
+            // 2. Creiamo il Progetto per questo utente
+            const res = await fetch('/api/projects', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: userId, domain_name: domain })
+            });
+            const data = await res.json();
+
+            // Salviamo il Progetto e andiamo alla Dashboard!
+            localStorage.setItem('eushield_project_id', data.project_id);
+            localStorage.setItem('eushield_domain', data.domain_name);
+            window.location.href = "dashboard.html";
+        });
+    </script>
+</body>
+</html>

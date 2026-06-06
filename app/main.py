@@ -13,6 +13,8 @@ from app.schemas.pydantic import (
     BannerConfigRequest, BannerResponse,
     ConsentLogCreate, PolicyRequest, PolicyResponse # <--- Aggiunti questi due
 )
+from app.models.database import User, Project
+from app.schemas.pydantic import AuthRequest, ProjectCreate
 
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
@@ -84,7 +86,7 @@ async def log_consent(consent: ConsentLogCreate, request: Request):
     db = SessionLocal()
     try:
         new_log = ConsentLog(
-            project_id=consent.project_id,
+            project_id=str(consent.project_id),
             ip_hash=ip_hash,
             action=consent.action,
             preferences=consent.preferences
@@ -121,29 +123,48 @@ def generate_policy(request: PolicyRequest):
         <ul>
     """
     
-    if request.has_ecommerce:
-        html += "<li><strong>E-commerce:</strong> Dati di fatturazione e spedizione per evadere gli ordini.</li>"
-    if request.collects_email:
-        html += "<li><strong>Contatti:</strong> Indirizzo email ed eventuali dati anagrafici inviati tramite moduli di contatto.</li>"
-    if request.receives_payments:
-        html += "<li><strong>Pagamenti:</strong> Gestiti in modo sicuro tramite provider esterni. Il sito non salva i numeri delle carte di credito.</li>"
-    if request.uses_analytics:
-        html += "<li><strong>Statistiche:</strong> Dati di navigazione e utilizzo, raccolti in forma aggregata (es. tramite Google Analytics) per migliorare il servizio.</li>"
+    # ... (codice precedente dell'endpoint) ...
+    
     if request.uses_newsletter:
         html += "<li><strong>Marketing:</strong> Previo consenso, l'email può essere utilizzata per l'invio di materiale promozionale.</li>"
         
+    html += "</ul>"
+
+    # ✨ IL NUOVO MOTORE DINAMICO: Scrive la policy in base a ciò che ha trovato!
+    html += "<h2>3. Servizi di Terze Parti e Tracciamento</h2>"
+    html += "<p>Durante la scansione automatizzata del sito, sono stati rilevati i seguenti servizi che potrebbero trattare dati personali:</p><ul>"
+    
+    if request.detected_trackers:
+        for t in request.detected_trackers:
+            name = t.get('name', 'Servizio Sconosciuto')
+            cat = t.get('category', 'Non classificato')
+            
+            if cat == 'Pubblicità':
+                html += f"<li><strong>{name} (Profilazione/Marketing):</strong> Raccoglie dati sul comportamento dell'utente per fornire annunci personalizzati. Il trasferimento dati potrebbe avvenire fuori dallo Spazio Economico Europeo (SEE).</li>"
+            elif cat == 'Analytics':
+                html += f"<li><strong>{name} (Statistica):</strong> Utilizzato per analizzare il traffico del sito web. I dati sono raccolti in forma aggregata.</li>"
+            elif cat == 'Sistemi di pagamento':
+                html += f"<li><strong>{name} (Transazioni):</strong> Gestisce in modo sicuro le transazioni finanziarie senza che il Titolare abbia accesso ai dati completi della carta.</li>"
+            elif cat == 'Cookie':
+                html += f"<li><strong>{name} (Tecnico/Tracciamento):</strong> Marcatore memorizzato sul browser dell'utente per mantenere la sessione o le preferenze.</li>"
+            else:
+                html += f"<li><strong>{name} ({cat}):</strong> Servizio tecnico di terze parti integrato nella piattaforma.</li>"
+    else:
+        html += "<li>Nessun servizio di tracciamento di terze parti invasivo è stato rilevato durante l'ultima scansione.</li>"
+
     html += """
         </ul>
-        <h2>3. Diritti dell'Utente (GDPR)</h2>
+        <h2>4. Diritti dell'Utente (GDPR)</h2>
         <p>In qualunque momento l'utente può richiedere l'accesso, la rettifica o la cancellazione dei propri dati tramite l'apposito portale Privacy.</p>
     </div>
     """
+# ... (lascia il salvataggio nel database com'è) ...
     
  # Salvataggio nel Database
     db = SessionLocal()
     try:
         new_policy = Policy(
-            project_id=request.project_id,
+            project_id=str(request.project_id),
             # ✨ IL SEGRETO È QUI: Aggiungiamo mode='json' per convertire l'UUID in semplice testo!
             answers_json=request.model_dump(mode='json'), 
             html_content=html
@@ -158,3 +179,41 @@ def generate_policy(request: PolicyRequest):
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()       
+
+
+# ==========================================
+# ENDPOINT MODULO ONBOARDING (ACCOUNT E PROGETTI)
+# ==========================================
+@app.post("/api/auth/magic-link", tags=["Auth"])
+def send_magic_link(req: AuthRequest):
+    db = SessionLocal()
+    try:
+        # Cerca l'utente. Se non esiste, lo registra nuovo di zecca!
+        user = db.query(User).filter(User.email == req.email).first()
+        if not user:
+            user = User(email=req.email)
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        
+        # SIMULAZIONE MAGIC LINK
+        print(f"📧 [SIMULAZIONE] Inviato Magic Link a {req.email}")
+        return {"message": "Accesso consentito!", "user_id": user.id}
+    finally:
+        db.close()
+
+@app.post("/api/projects", tags=["Projects"])
+def create_project(req: ProjectCreate):
+    db = SessionLocal()
+    try:
+        new_project = Project(
+            user_id=str(req.user_id),
+            domain_name=req.domain_name
+        )
+        db.add(new_project)
+        db.commit()
+        db.refresh(new_project)
+        print(f"🌍 Nuovo progetto creato: {new_project.domain_name}")
+        return {"project_id": new_project.id, "domain_name": new_project.domain_name}
+    finally:
+        db.close()        
