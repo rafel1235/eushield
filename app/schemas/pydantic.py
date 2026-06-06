@@ -44,3 +44,18 @@ class ConsentLogCreate(BaseModel):
     project_id: UUID
     action: Literal["accepted", "rejected", "customized"]
     preferences: Dict[str, bool] # es. {"marketing": true, "analytics": false}    
+
+
+# ---> INCOLLA IN FONDO AL FILE <---
+class PolicyRequest(BaseModel):
+    project_id: UUID
+    has_ecommerce: bool
+    collects_email: bool
+    receives_payments: bool
+    uses_analytics: bool
+    uses_newsletter: bool
+
+class PolicyResponse(BaseModel):
+    policy_id: UUID
+    html_content: str
+    message: str    
